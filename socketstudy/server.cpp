@@ -2,8 +2,10 @@
 #include<iostream>
 #include<WinSock2.h>
 #include<memory.h>
+#include<string>
 
 #define MAX_LEN 512
+#define SERVER_PORT 23000
 
 using namespace std;
 
@@ -12,7 +14,6 @@ int main()
 	WSADATA WSAData;
 	if (WSAStartup(MAKEWORD(2, 2), &WSAData) != 0)
 		return 1;
-	//SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	SOCKET listenSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
 	if (listenSocket == INVALID_SOCKET)
 	{
@@ -24,7 +25,7 @@ int main()
 	memset(&serverAddr, 0, sizeof(SOCKADDR_IN));
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
-	serverAddr.sin_port = htons(23000);
+	serverAddr.sin_port = htons(SERVER_PORT);
 
 	if (bind(listenSocket, (sockaddr*)&serverAddr, sizeof(SOCKADDR_IN)) == SOCKET_ERROR)
 	{
@@ -40,36 +41,42 @@ int main()
 		WSACleanup();
 		return 1;
 	}
+	cout << "Listening for accept..." << endl;
 
 	SOCKADDR_IN clientAddr;
 	int addrLen = sizeof(SOCKADDR_IN);
 	SOCKET clientSocket;
 	char readBuffer[MAX_LEN];
 	int bufLen;
-	while (1)
+	clientSocket = accept(listenSocket, (sockaddr*)&clientAddr, &addrLen);
+	if (clientSocket == INVALID_SOCKET)
 	{
-		clientSocket = accept(listenSocket, (sockaddr*)&clientAddr, &addrLen);
-		if (clientSocket == INVALID_SOCKET)
-		{
-			MessageBox(NULL, L"Accept failed", L"ERROR", MB_OK | MB_ICONERROR);
-			closesocket(listenSocket);
-			WSACleanup();
-			return 1;
-		}
-		cout << "Accept Success" << endl;
+		MessageBox(NULL, L"Accept failed", L"ERROR", MB_OK | MB_ICONERROR);
+		closesocket(listenSocket);
+		WSACleanup();
+		return 1;
+	}
+	cout << "Accept Success" << endl;
+	closesocket(listenSocket);
+	do
+	{
+		memset(&clientAddr, 0, sizeof(SOCKADDR_IN));
 		bufLen = recv(clientSocket, readBuffer, MAX_LEN, 0);
 		if (bufLen > 0)
 		{
+			cout << "Receive message: " << readBuffer << endl;
 			send(clientSocket, readBuffer, bufLen, 0);
 		}
 		else
 		{
-			cout << "Read ERROR" << endl;
+			cout << "Receive ERROR" << endl;
+			closesocket(clientSocket);
+			WSACleanup();
+			return 1;
 		}
-		closesocket(clientSocket);
-	}
+	} while (bufLen > 0);
 
-	closesocket(listenSocket);
+	closesocket(clientSocket);
 	WSACleanup();
 	return 0;
 }
