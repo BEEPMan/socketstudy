@@ -3,7 +3,7 @@
 #include<WinSock2.h>
 #include<WS2tcpip.h>
 #include<memory.h>
-#include<string>
+#include<cstring>
 
 #define MAX_LEN 512
 #define SERVER_PORT 23000
@@ -15,7 +15,11 @@ int main()
 {
 	WSADATA WSAData;
 	if (WSAStartup(MAKEWORD(2, 2), &WSAData) != 0)
+	{
+		MessageBox(NULL, L"Can not load 'winsock.dll' file", L"ERROR", MB_OK | MB_ICONERROR);
 		return 1;
+	}
+
 	SOCKET clientSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
 	if (clientSocket == INVALID_SOCKET)
 	{
@@ -24,12 +28,13 @@ int main()
 		return 1;
 	}
 
-	SOCKADDR_IN clientAddr;
-	memset(&clientAddr, 0, sizeof(SOCKADDR_IN));
-	clientAddr.sin_family = AF_INET;
-	clientAddr.sin_port = htons(SERVER_PORT);
-	inet_pton(clientAddr.sin_family, SERVER_IP, &clientAddr.sin_addr.S_un.S_addr);
-	if (connect(clientSocket, (sockaddr*)&clientAddr, sizeof(SOCKADDR_IN)) == SOCKET_ERROR)
+	SOCKADDR_IN serverAddr;
+	memset(&serverAddr, 0, sizeof(SOCKADDR_IN));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_port = htons(SERVER_PORT);
+	inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr.S_un.S_addr);
+
+	if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(SOCKADDR_IN)) == SOCKET_ERROR)
 	{
 		MessageBox(NULL, L"Connect failed", L"ERROR", MB_OK | MB_ICONERROR);
 		closesocket(clientSocket);
@@ -39,32 +44,23 @@ int main()
 
 	char messageBuffer[MAX_LEN];
 	int bufLen;
-	int sendLen;
-	int recvLen;
+	int sendBufLen;
+	int recvBufLen;
 	while (1)
 	{
 		cout << "Send message: ";
-		int i;
-		for (i = 0; 1; i++)
+		cin.getline(messageBuffer, MAX_LEN, '\n');
+		if (cin.fail())
 		{
-			messageBuffer[i] = getchar();
-			if (messageBuffer[i] == '\n')
-			{
-				messageBuffer[i++] = '\0';
-				break;
-			}
-			if (i == MAX_LEN - 1)
-			{
-				messageBuffer[i] = '\0';
-				break;
-			}
+			cin.clear();
+			cin.ignore(LLONG_MAX, '\n');
 		}
-		bufLen = i;
-		sendLen = send(clientSocket, messageBuffer, bufLen, 0);
-		if (sendLen > 0)
+		bufLen = strlen(messageBuffer) + 1;
+		sendBufLen = send(clientSocket, messageBuffer, bufLen, 0);
+		if (sendBufLen > 0)
 		{
-			recvLen = recv(clientSocket, messageBuffer, MAX_LEN, 0);
-			if (recvLen > 0)
+			recvBufLen = recv(clientSocket, messageBuffer, MAX_LEN, 0);
+			if (recvBufLen > 0)
 			{
 				cout << "Receive message: " << messageBuffer << endl;
 			}
