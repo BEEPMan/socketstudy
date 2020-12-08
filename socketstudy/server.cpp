@@ -79,6 +79,8 @@ int main()
 		}
 	}
 
+	int* num = new int(3);
+
 	closesocket(listenSocket);
 	closesocket(clientSocket);
 	WSACleanup();
