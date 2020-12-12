@@ -11,16 +11,26 @@
 
 using namespace std;
 
+struct SOCKETINFO
+{
+	WSAOVERLAPPED overlapped;
+	WSABUF dataBuffer;
+	SOCKET socket;
+	char messageBuffer[MAX_LEN];
+	int receiveBytes;
+	int sendBytes;
+};
+
 int main()
 {
 	WSADATA WSAData;
-	if (WSAStartup(MAKEWORD(2, 2), &WSAData) != 0)
+	if (WSAStartup(MAKEWORD(2, 0), &WSAData) != 0)
 	{
 		MessageBox(NULL, L"Can not load 'winsock.dll' file", L"ERROR", MB_OK | MB_ICONERROR);
 		return 1;
 	}
 
-	SOCKET clientSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
+	SOCKET clientSocket = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 	if (clientSocket == INVALID_SOCKET)
 	{
 		MessageBox(NULL, L"Invalid socket", L"ERROR", MB_OK | MB_ICONERROR);
@@ -32,9 +42,9 @@ int main()
 	memset(&serverAddr, 0, sizeof(SOCKADDR_IN));
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(SERVER_PORT);
-	inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr.S_un.S_addr);
+	inet_pton(AF_INET, SERVER_IP, &(serverAddr.sin_addr.S_un.S_addr));
 
-	if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(SOCKADDR_IN)) == SOCKET_ERROR)
+	if (connect(clientSocket, (struct sockaddr*)&serverAddr, sizeof(SOCKADDR_IN)) == SOCKET_ERROR)
 	{
 		MessageBox(NULL, L"Connect failed", L"ERROR", MB_OK | MB_ICONERROR);
 		closesocket(clientSocket);
