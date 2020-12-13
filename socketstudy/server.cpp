@@ -104,7 +104,6 @@ int main()
 		socketInfo->dataBuffer.len = MAX_LEN;
 		socketInfo->dataBuffer.buf = socketInfo->messageBuffer;
 		flags = 0;
-
 		hIOCP = CreateIoCompletionPort((HANDLE)clientSocket, hIOCP, (DWORD)socketInfo, 0);
 
 		if (WSARecv(socketInfo->socket, &(socketInfo->dataBuffer), 1, &receiveBytes, &flags, &(socketInfo->overlapped), NULL))
