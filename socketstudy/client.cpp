@@ -11,16 +11,6 @@
 
 using namespace std;
 
-struct SOCKETINFO
-{
-	WSAOVERLAPPED overlapped;
-	WSABUF dataBuffer;
-	SOCKET socket;
-	char messageBuffer[MAX_LEN];
-	int receiveBytes;
-	int sendBytes;
-};
-
 int main()
 {
 	WSADATA WSAData;
@@ -51,6 +41,7 @@ int main()
 		WSACleanup();
 		return 1;
 	}
+	cout << "Connect Success" << endl;
 
 	char messageBuffer[MAX_LEN];
 	int bufLen;

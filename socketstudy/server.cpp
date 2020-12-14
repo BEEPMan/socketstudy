@@ -21,21 +21,21 @@ struct SOCKETINFO
 	int sendBytes;
 };
 
-void sendEcho(LPVOID hIOCP);
+void workerThread(LPVOID hIOCP);
 
 int main()
 {
 	WSADATA WSAData;
 	if (WSAStartup(MAKEWORD(2, 2), &WSAData) != 0)
 	{
-		MessageBox(NULL, L"Can not load 'winsock.dll' file", L"ERROR", MB_OK | MB_ICONERROR);
+		cout << "ERROR - Can't Load 'winsock.dll' File" << endl;
 		return 1;
 	}
 
 	SOCKET listenSocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, 0, WSA_FLAG_OVERLAPPED);
 	if (listenSocket == INVALID_SOCKET)
 	{
-		MessageBox(NULL, L"Invalid socket", L"ERROR", MB_OK | MB_ICONERROR);
+		cout << "ERROR - Invalid Socket" << endl;
 		WSACleanup();
 		return 1;
 	}
@@ -48,7 +48,7 @@ int main()
 
 	if (bind(listenSocket, (struct sockaddr*)&serverAddr, sizeof(SOCKADDR_IN)) == SOCKET_ERROR)
 	{
-		MessageBox(NULL, L"Bind failed", L"ERROR", MB_OK | MB_ICONERROR);
+		cout << "ERROR - Binding Failure" << endl;
 		closesocket(listenSocket);
 		WSACleanup();
 		return 1;
@@ -56,12 +56,12 @@ int main()
 
 	if (listen(listenSocket, 5) == SOCKET_ERROR)
 	{
-		MessageBox(NULL, L"Listen failed", L"ERROR", MB_OK | MB_ICONERROR);
+		cout << "ERROR - Listening Failure" << endl;
 		closesocket(listenSocket);
 		WSACleanup();
 		return 1;
 	}
-	cout << "Listening for accept..." << endl;
+	cout << "Listening for Accept..." << endl;
 
 	HANDLE hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
 
@@ -72,7 +72,7 @@ int main()
 	vector<thread> threadPool;
 	for (int i = 0; i < threadCount; i++)
 	{
-		threadPool.emplace_back(thread{ sendEcho, &hIOCP });
+		threadPool.emplace_back(thread{ workerThread, &hIOCP });
 	}
 
 	SOCKADDR_IN clientAddr;
@@ -80,7 +80,7 @@ int main()
 	SOCKET clientSocket;
 	char readBuffer[MAX_LEN];
 	int bufLen;
-	SOCKETINFO* socketInfo;
+	SOCKETINFO* socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));;
 	DWORD receiveBytes;
 	DWORD flags;
 
@@ -89,18 +89,15 @@ int main()
 		clientSocket = accept(listenSocket, (struct sockaddr*)&clientAddr, &addrLen);
 		if (clientSocket == INVALID_SOCKET)
 		{
-			MessageBox(NULL, L"Accept failed", L"ERROR", MB_OK | MB_ICONERROR);
+			cout << "ERROR - Accept Failure" << endl;
 			closesocket(listenSocket);
 			WSACleanup();
 			return 1;
 		}
 		cout << "Accept Success" << endl;
 
-		socketInfo = (struct SOCKETINFO *)malloc(sizeof(struct SOCKETINFO));
 		memset((void *)socketInfo, 0, sizeof(struct SOCKETINFO));
 		socketInfo->socket = clientSocket;
-		socketInfo->receiveBytes = 0;
-		socketInfo->sendBytes = 0;
 		socketInfo->dataBuffer.len = MAX_LEN;
 		socketInfo->dataBuffer.buf = socketInfo->messageBuffer;
 		flags = 0;
@@ -110,7 +107,7 @@ int main()
 		{
 			if (WSAGetLastError() != WSA_IO_PENDING)
 			{
-				MessageBox(NULL, L"IO pending failed", L"ERROR", MB_OK | MB_ICONERROR);
+				cout << "ERROR - IO Pending Failure" << endl;
 				closesocket(listenSocket);
 				WSACleanup();
 				return 1;
@@ -129,7 +126,7 @@ int main()
 	return 0;
 }
 
-void sendEcho(LPVOID hIOCP)
+void workerThread(LPVOID hIOCP)
 {
 	DWORD recieveBytes;
 	DWORD sendBytes;
