@@ -21,6 +21,8 @@ struct SOCKETINFO
 	int sendBytes;
 };
 
+vector<SOCKETINFO*> userList;
+
 void workerThread(LPVOID hIOCP);
 
 int main()
@@ -80,7 +82,7 @@ int main()
 	SOCKET clientSocket;
 	char readBuffer[MAX_LEN];
 	int bufLen;
-	SOCKETINFO* socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));;
+	SOCKETINFO* socketInfo;
 	DWORD receiveBytes;
 	DWORD flags;
 
@@ -96,12 +98,14 @@ int main()
 		}
 		cout << "Accept Success" << endl;
 
+		socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));
 		memset((void *)socketInfo, 0, sizeof(struct SOCKETINFO));
 		socketInfo->socket = clientSocket;
 		socketInfo->dataBuffer.len = MAX_LEN;
 		socketInfo->dataBuffer.buf = socketInfo->messageBuffer;
 		flags = 0;
 		hIOCP = CreateIoCompletionPort((HANDLE)clientSocket, hIOCP, (DWORD)socketInfo, 0);
+		userList.push_back(socketInfo);
 
 		if (WSARecv(socketInfo->socket, &(socketInfo->dataBuffer), 1, &receiveBytes, &flags, &(socketInfo->overlapped), NULL))
 		{
@@ -156,11 +160,14 @@ void workerThread(LPVOID hIOCP)
 		{
 			cout << "TRACE - Receive message : " << eventSocket->dataBuffer.buf << " (" << eventSocket->dataBuffer.len << " bytes)" << endl;
 
-			if (WSASend(eventSocket->socket, &(eventSocket->dataBuffer), 1, &sendBytes, 0, NULL, NULL) == SOCKET_ERROR)
+			for (auto& socketInfo : userList)
 			{
-				if (WSAGetLastError() != WSA_IO_PENDING)
+				if (WSASend(socketInfo->socket, &(eventSocket->dataBuffer), 1, &sendBytes, 0, NULL, NULL) == SOCKET_ERROR)
 				{
-					cout << "ERROR - Fail WSASend(error_code : " << WSAGetLastError() << endl;
+					if (WSAGetLastError() != WSA_IO_PENDING)
+					{
+						cout << "ERROR - Fail WSASend(error_code : " << WSAGetLastError() << endl;
+					}
 				}
 			}
 

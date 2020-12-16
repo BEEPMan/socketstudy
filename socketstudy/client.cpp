@@ -3,6 +3,7 @@
 #include<WinSock2.h>
 #include<WS2tcpip.h>
 #include<memory.h>
+#include<thread>
 #include<cstring>
 
 #define MAX_LEN 512
@@ -10,6 +11,8 @@
 #define SERVER_IP "127.0.0.1"
 
 using namespace std;
+
+void workerThread(const SOCKET& socket);
 
 int main()
 {
@@ -43,13 +46,14 @@ int main()
 	}
 	cout << "Connect Success" << endl;
 
+	thread recvThread(workerThread, clientSocket);
+
 	char messageBuffer[MAX_LEN];
 	int bufLen;
 	int sendBufLen;
 	int recvBufLen;
 	while (1)
 	{
-		cout << "Send message: ";
 		cin.getline(messageBuffer, MAX_LEN, '\n');
 		if (cin.fail())
 		{
@@ -58,16 +62,23 @@ int main()
 		}
 		bufLen = strlen(messageBuffer) + 1;
 		sendBufLen = send(clientSocket, messageBuffer, bufLen, 0);
-		if (sendBufLen > 0)
-		{
-			recvBufLen = recv(clientSocket, messageBuffer, MAX_LEN, 0);
-			if (recvBufLen > 0)
-			{
-				cout << "Receive message: " << messageBuffer << endl;
-			}
-		}
 	}
 
+	recvThread.join();
 	closesocket(clientSocket);
 	WSACleanup();
+}
+
+void workerThread(const SOCKET& socket)
+{
+	char messageBuffer[MAX_LEN];
+	int recvBufLen;
+	while (1)
+	{
+		recvBufLen = recv(socket, messageBuffer, MAX_LEN, 0);
+		if (recvBufLen > 0)
+		{
+			cout << "Receive message: " << messageBuffer << endl;
+		}
+	}
 }
