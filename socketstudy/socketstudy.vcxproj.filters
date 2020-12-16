@@ -15,16 +15,16 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="server.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="client.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="echoIOCPServer.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="echoIOCPClient.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="chattingClient.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="chattingServer.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

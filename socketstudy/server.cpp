@@ -1,13 +1,11 @@
 #pragma comment(lib,"ws2_32")
 #include<iostream>
 #include<WinSock2.h>
-#include<WS2tcpip.h>
 #include<memory.h>
 #include<string>
 #include<thread>
 #include<vector>
 
-#define MAX_CLIENT 5
 #define MAX_LEN 512
 #define SERVER_PORT 23000
 
@@ -17,19 +15,11 @@ struct SOCKETINFO
 {
 	WSAOVERLAPPED overlapped;
 	WSABUF dataBuffer;
+	SOCKET socket;
 	char messageBuffer[MAX_LEN];
 	int receiveBytes;
 	int sendBytes;
 };
-
-struct CLIENTINFO
-{
-	SOCKET socket;
-	SOCKADDR_IN address;
-	char ip[22];
-};
-
-vector<CLIENTINFO*> userList;
 
 void workerThread(LPVOID hIOCP);
 
@@ -85,36 +75,35 @@ int main()
 		threadPool.emplace_back(thread{ workerThread, &hIOCP });
 	}
 
+	SOCKADDR_IN clientAddr;
 	int addrLen = sizeof(SOCKADDR_IN);
+	SOCKET clientSocket;
 	char readBuffer[MAX_LEN];
 	int bufLen;
-	SOCKETINFO* socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));
+	SOCKETINFO* socketInfo = (struct SOCKETINFO*)malloc(sizeof(struct SOCKETINFO));;
 	DWORD receiveBytes;
 	DWORD flags;
-	CLIENTINFO* tempClient;
 
 	while (1)
 	{
-		tempClient = (struct CLIENTINFO *)malloc(sizeof(struct CLIENTINFO));
-		tempClient->socket = accept(listenSocket, (struct sockaddr*)&(tempClient->address), &addrLen);
-		if (tempClient->socket == INVALID_SOCKET)
+		clientSocket = accept(listenSocket, (struct sockaddr*)&clientAddr, &addrLen);
+		if (clientSocket == INVALID_SOCKET)
 		{
 			cout << "ERROR - Accept Failure" << endl;
 			closesocket(listenSocket);
 			WSACleanup();
 			return 1;
 		}
-		inet_ntop(tempClient->address.sin_family, &(tempClient->address.sin_addr.S_un.S_addr), tempClient->ip, INET_ADDRSTRLEN);
-		userList.push_back(tempClient);
-		cout << "Accept Success (User IP : " << tempClient->ip << ")" << endl;
+		cout << "Accept Success" << endl;
 
-		memset((void*)socketInfo, 0, sizeof(struct SOCKETINFO));
+		memset((void *)socketInfo, 0, sizeof(struct SOCKETINFO));
+		socketInfo->socket = clientSocket;
 		socketInfo->dataBuffer.len = MAX_LEN;
 		socketInfo->dataBuffer.buf = socketInfo->messageBuffer;
 		flags = 0;
-		hIOCP = CreateIoCompletionPort((HANDLE)tempClient->socket, hIOCP, (DWORD)tempClient, 0);
+		hIOCP = CreateIoCompletionPort((HANDLE)clientSocket, hIOCP, (DWORD)socketInfo, 0);
 
-		if (WSARecv(tempClient->socket, &(socketInfo->dataBuffer), 1, &receiveBytes, &flags, &(socketInfo->overlapped), NULL))
+		if (WSARecv(socketInfo->socket, &(socketInfo->dataBuffer), 1, &receiveBytes, &flags, &(socketInfo->overlapped), NULL))
 		{
 			if (WSAGetLastError() != WSA_IO_PENDING)
 			{
@@ -126,15 +115,13 @@ int main()
 		}
 	}
 
-	for (auto& t : threadPool)
+	for (auto &t : threadPool)
 	{
 		t.join();
 	}
-	for (auto& s : userList)
-	{
-		closesocket(s->socket);
-	}
+
 	closesocket(listenSocket);
+	closesocket(clientSocket);
 	WSACleanup();
 	return 0;
 }
@@ -143,17 +130,16 @@ void workerThread(LPVOID hIOCP)
 {
 	DWORD recieveBytes;
 	DWORD sendBytes;
-	CLIENTINFO* clientInfo;
+	DWORD completionKey;
 	DWORD flags;
 	SOCKETINFO* eventSocket;
 
 	while (1)
 	{
-		if (GetQueuedCompletionStatus(*((HANDLE*)hIOCP), &recieveBytes, (PULONG_PTR)&clientInfo, (LPOVERLAPPED*)&eventSocket, INFINITE) == 0)
+		if (GetQueuedCompletionStatus(*((HANDLE *) hIOCP), &recieveBytes, (PULONG_PTR)&completionKey, (LPOVERLAPPED *)&eventSocket, INFINITE) == 0)
 		{
 			cout << "ERROR - GetQueuedCompletionStatus Failure" << endl;
-			closesocket(clientInfo->socket);
-			free(clientInfo);
+			closesocket(eventSocket->socket);
 			free(eventSocket);
 			return;
 		}
@@ -162,8 +148,7 @@ void workerThread(LPVOID hIOCP)
 
 		if (recieveBytes == 0)
 		{
-			closesocket(clientInfo->socket);
-			free(clientInfo);
+			closesocket(eventSocket->socket);
 			free(eventSocket);
 			return;
 		}
@@ -171,7 +156,7 @@ void workerThread(LPVOID hIOCP)
 		{
 			cout << "TRACE - Receive message : " << eventSocket->dataBuffer.buf << " (" << eventSocket->dataBuffer.len << " bytes)" << endl;
 
-			if (WSASend(clientInfo->socket, &(eventSocket->dataBuffer), 1, &sendBytes, 0, NULL, NULL) == SOCKET_ERROR)
+			if (WSASend(eventSocket->socket, &(eventSocket->dataBuffer), 1, &sendBytes, 0, NULL, NULL) == SOCKET_ERROR)
 			{
 				if (WSAGetLastError() != WSA_IO_PENDING)
 				{
@@ -188,7 +173,7 @@ void workerThread(LPVOID hIOCP)
 			eventSocket->dataBuffer.buf = eventSocket->messageBuffer;
 			flags = 0;
 
-			if (WSARecv(clientInfo->socket, &(eventSocket->dataBuffer), 1, &recieveBytes, &flags, &(eventSocket->overlapped), NULL) == SOCKET_ERROR)
+			if (WSARecv(eventSocket->socket, &(eventSocket->dataBuffer), 1, &recieveBytes, &flags, &(eventSocket->overlapped), NULL) == SOCKET_ERROR)
 			{
 				if (WSAGetLastError() != WSA_IO_PENDING)
 				{
