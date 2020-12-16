@@ -6,6 +6,7 @@
 #include<thread>
 #include<vector>
 
+#define MAX_ID_LEN 30
 #define MAX_LEN 512
 #define SERVER_PORT 23000
 
@@ -19,6 +20,15 @@ struct SOCKETINFO
 	char messageBuffer[MAX_LEN];
 	int receiveBytes;
 	int sendBytes;
+};
+
+struct CLIENT
+{
+	SOCKET socket;
+	int id;
+	SOCKETINFO socketInfo;
+	bool connected;
+	char name[MAX_ID_LEN];
 };
 
 vector<SOCKETINFO*> userList;
@@ -123,9 +133,12 @@ int main()
 	{
 		t.join();
 	}
-
+	for (auto& s : userList)
+	{
+		closesocket(s->socket);
+		free(s);
+	}
 	closesocket(listenSocket);
-	closesocket(clientSocket);
 	WSACleanup();
 	return 0;
 }
